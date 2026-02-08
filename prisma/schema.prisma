@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User (Authentication)
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  trips Trip[]
+}
+
+// Trip
+model Trip {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  timezone  String   @default("Asia/Bangkok")
+  budget    Int      @default(0)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  description String?
+  coverImage  String?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  members     Member[]
+  activities  Activity[]
+  expenses    Expense[]
+  images      TripImage[]
+  settlements Settlement[]
+}
+
+// Member
+model Member {
+  id     String @id @default(cuid())
+  name   String
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  paidExpenses         Expense[]            @relation("Payer")
+  participatedExpenses ExpenseParticipant[]
+  
+  // Settlements
+  paidSettlements      Settlement[]         @relation("Debtor")
+  receivedSettlements  Settlement[]         @relation("Creditor")
+
+  role   Role @default(MEMBER)
+}
+
+enum Role {
+  LEADER
+  MEMBER
+}
+
+// Activity
+model Activity {
+  id        String   @id @default(cuid())
+  name      String
+  date      DateTime
+  startTime DateTime // UTC DateTime
+  endTime   DateTime // UTC DateTime
+  category  String   // food, transport, accommodation, attraction, shopping, other
+  location  String?
+  notes     String?
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  expenses Expense[]
+}
+
+// Expense
+model Expense {
+  id          String   @id @default(cuid())
+  amount      Int      // Original amount in local currency (Stored in Satang x100)
+  currency    String   @default("THB")
+  thbAmount   Int      @default(0) // Equivalent amount in THB (Stored in Satang x100)
+  description String
+  category    String   // food, transport, accommodation, attraction, shopping, other
+  date        DateTime
+  createdAt   DateTime @default(now())
+  
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  activityId String?
+  activity   Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  payerId String
+  payer   Member @relation("Payer", fields: [payerId], references: [id], onDelete: Cascade)
+
+  participants ExpenseParticipant[]
+}
+
+// ExpenseParticipant
+model ExpenseParticipant {
+  id        String  @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  share     Int     // Stored in Satang (x100)
+
+  @@unique([expenseId, memberId])
+}
+
+// Settlement (Clear Debt)
+model Settlement {
+  id        String   @id @default(cuid())
+  amount    Int      // Stored in Satang (x100)
+  currency  String   @default("THB")
+  status    String   @default("PENDING") // PENDING, CONFIRMED
+  createdAt DateTime @default(now())
+  
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  debtorId  String
+  debtor    Member   @relation("Debtor", fields: [debtorId], references: [id], onDelete: Cascade)
+
+  creditorId String
+  creditor   Member   @relation("Creditor", fields: [creditorId], references: [id], onDelete: Cascade)
+
+  slipUrl   String?  // Optional proof of payment
+}
+
+// Saved Contacts (Friends)
+model SavedContact {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+// Trip Gallery Images
+model TripImage {
+  id        String   @id @default(cuid())
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+  
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
