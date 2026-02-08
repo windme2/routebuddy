@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma generated client
+/src/generated/
+
+# local database & logs
+dev.db
+dev.db-journal
+dev.log
+*.pgm
+
+# temporary/utility scripts
+add-covers.ts
+scripts/
+
+# dump sql files (specific pattern)
+dump-routebuddy-*.sql
